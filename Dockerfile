@@ -34,32 +34,34 @@ RUN echo "## Installing base ##" && \
 	\
     apk add --no-cache --virtual .build-deps \
         gcc \
-		g++ \
-		make \
-		libc-dev \
-		musl-dev \
-		linux-headers \
-		pcre-dev \
-		mysql-dev \
-		postgresql-dev \
-		libjpeg-turbo-dev \
-		zlib-dev \
+        g++ \
+        make \
+        libc-dev \
+        musl-dev \
+        linux-headers \
+        pcre-dev \
+        postgresql-dev \
+        libjpeg-turbo-dev \
+        zlib-dev \
+        expat-dev \
 	;\
-	apk add --force \
-		git@main \
-		bash@main \
-		postgresql-client@main \
+    apk add --force \
+	git@main \
+	bash@main \
+	libjpeg-turbo@main \
+	pcre@main \
+	postgresql-client@main \
         tini@community \
 	\
 	&& python -m venv /venv \
 	&& /venv/bin/pip install -U pip \
 	&& LIBRARY_PATH=/lib:/usr/lib /bin/sh -c "/venv/bin/pip install -r /requirements/production.txt" \
 	&& runDeps="$( \
-		scanelf --needed --nobanner --recursive /venv \
-			| awk '{ gsub(/,/, "\nso:", $2); print "so:" $2 }' \
-			| sort -u \
-			| xargs -r apk info --installed \
-			| sort -u \
+	    scanelf --needed --nobanner --recursive /venv \
+	        | awk '{ gsub(/,/, "\nso:", $2); print "so:" $2 }' \
+	        | sort -u \
+	        | xargs -r apk info --installed \
+	        | sort -u \
 	)" \
 	&& apk add --virtual .python-rundeps $runDeps \
 	&& apk del .build-deps \
@@ -74,11 +76,11 @@ ADD . /code/
 # place init, make it executable and
 # make sure static files are writable by uWSGI process
 RUN mv /code/docker-entrypoint.sh / ;\
-	chmod +x /docker-entrypoint.sh ;\
-	find /venv/ -type f -iname "*.py" -exec chmod -v +x {} ;\
-	\
-	# Call collectstatic with dummy environment variables:
-	DATABASE_URL=postgres://none REDIS_URL=none /venv/bin/python manage.py collectstatic --noinput
+    chmod +x /docker-entrypoint.sh ;\
+    find /venv/ -type f -iname "*.py" -exec chmod -v +x {} ;\
+    \
+    # Call collectstatic with dummy environment variables:
+    DATABASE_URL=postgres://none REDIS_URL=none /venv/bin/python manage.py collectstatic --noinput
 
 # I personally like to start my containers with tini ^^
 # which start uWSGI, using a wrapper script to allow us to easily add
@@ -86,9 +88,9 @@ RUN mv /code/docker-entrypoint.sh / ;\
 ENTRYPOINT ["/sbin/tini", "--", "/docker-entrypoint.sh"]
 
 CMD ["/venv/bin/uwsgi", "--http-auto-chunked", \
-						"--http-keepalive", \
-						"--static-map", \
-						"/media/=/code/media/"\
+			"--http-keepalive", \
+			"--static-map", \
+			"/media/=/code/media/"\
 ]
 
 # SPDX-License-Identifier: (EUPL-1.2)
